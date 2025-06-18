@@ -2,8 +2,8 @@
 import axios from "axios";
 
 const instance = axios.create({
-  baseURL: "http://localhost:5000", // or whatever your backend port is
-  withCredentials: true,
+  baseURL: "http://localhost:5000", 
+  withCredentials: true, // Important to send/receive cookies
 });
 
-export default instance; // ✅ make sure to export default
+export default instance; 
