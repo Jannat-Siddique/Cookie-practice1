@@ -1,5 +1,5 @@
 import { useState } from "react";
-import axios from "./axios";
+import axios from "./axios"; // this axios must be preconfigured
 import { useNavigate } from "react-router-dom";
 
 export default function Login() {
@@ -11,22 +11,16 @@ export default function Login() {
     try {
       await axios.post("/login", { email, password });
       navigate("/dashboard");
-    } catch {
+    } catch (err) {
       alert("Invalid credentials");
     }
   };
-axios.post("http://localhost:5000/login", {
-  email,
-  password,
-}, {
-  withCredentials: true 
-})
 
   return (
     <div>
       <h2>Login</h2>
-      <input placeholder="email" onChange={(e) => setEmail(e.target.value)} />
-      <input type="password" placeholder="password" onChange={(e) => setPassword(e.target.value)} />
+      <input placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <input type="password" placeholder="password" value={password} onChange={(e) => setPassword(e.target.value)} />
       <button onClick={handleLogin}>Login</button>
     </div>
   );
