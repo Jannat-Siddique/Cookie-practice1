@@ -1,85 +1,90 @@
 import express from "express";
 import cookieParser from "cookie-parser";
 import cors from "cors";
+import jwt from "jsonwebtoken";
 
 const app = express();
 const PORT = 5000;
+const SECRET = "mysecretkey"; // In real apps, use .env
 
 app.use(express.json());
 app.use(cookieParser());
 
 app.use(cors({
-  origin: "http://localhost:5173", 
+  origin: "http://localhost:5173",
   credentials: true
 }));
 
-// Fake user for login
+// Fake user
 const user = {
   id: 1,
   email: "user@test.com",
   password: "123"
 };
 
-// Fake user-specific data
 let userData = {
   id: 1,
   name: "John Doe",
   bio: "This is private bio only visible after login"
 };
 
-// Public route for everyone
-app.get("/public", (req, res) => {
-  res.json({ message: "Welcome to our platform! Here's some public data." });
-});
-
-//  Login route
+// Login
 app.post("/login", (req, res) => {
   const { email, password } = req.body;
 
   if (email === user.email && password === user.password) {
-    res.cookie("auth", true, {
-      httpOnly: true,
-      maxAge: 60 * 60 * 1000 // 1 hour
-    });
-    return res.json({ message: "Login successful" });
+    const token = jwt.sign({ id: user.id, email: user.email }, SECRET, { expiresIn: "1h" });
+    return res.json({ token, message: "Login successful" });
   }
 
   res.status(401).json({ message: "Invalid credentials" });
 });
 
-//  Auth status (to check if user is logged in)
-app.get("/auth-status", (req, res) => {
-  if (req.cookies.auth) {
-    res.json({ loggedIn: true });
-  } else {
-    res.json({ loggedIn: false });
+// Auth middleware
+const authenticate = (req, res, next) => {
+  const rawCookie = req.headers.cookie || "";
+  const tokenMatch = rawCookie.split("; ").find(c => c.startsWith("token="));
+  const token = tokenMatch?.split("=")[1];
+
+  if (!token) return res.status(401).json({ message: "Token missing" });
+
+  try {
+    const decoded = jwt.verify(token, SECRET);
+    req.user = decoded;
+    next();
+  } catch {
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
+};
+
+// Protected routes
+app.get("/auth-status", authenticate, (req, res) => {
+  res.json({ loggedIn: true, user: req.user });
 });
 
-//  Protected route (dashboard)
-app.get("/protected", (req, res) => {
-  if (req.cookies.auth) {
-    return res.json({ message: "Welcome to your dashboard", data: userData });
-  }
-  res.status(401).json({ message: "Unauthorized" });
+app.get("/protected", authenticate, (req, res) => {
+  res.json({ message: "Welcome to your dashboard", data: userData });
 });
 
-// Update user data route (edit after login)
-app.post("/update-user", (req, res) => {
-  if (req.cookies.auth) {
-    const { name, bio } = req.body;
-    userData.name = name;
-    userData.bio = bio;
-    return res.json({ message: "User data updated", data: userData });
-  }
-  res.status(401).json({ message: "Unauthorized" });
+app.post("/update-user", authenticate, (req, res) => {
+  const { name, bio } = req.body;
+  userData.name = name;
+  userData.bio = bio;
+  res.json({ message: "User data updated", data: userData });
 });
 
-//  Logout route
 app.post("/logout", (req, res) => {
-  res.clearCookie("auth");
-  res.json({ message: "Logged out" });
+  res.json({ message: "Logged out. Clear cookie on frontend." });
 });
 
-//  Start the server
+// Public route
+app.get("/public", (req, res) => {
+  res.json({
+    message: "Welcome to the public page!",
+    info: "This content is visible to all visitors — no login needed."
+  });
+});
+
+
+
 app.listen(PORT, () => console.log(`Backend running at http://localhost:${PORT}`));
